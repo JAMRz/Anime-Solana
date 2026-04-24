@@ -1,60 +1,182 @@
-# Biblioteca en Solana
+# 📺 Lista de Anime — Programa Solana (Anchor)
 
-![banner](./images/banner-biblioteca.jpg)
+Un smart contract escrito en Rust con el framework **Anchor** que permite a cada usuario crear y gestionar su propia lista de animes directamente en la blockchain de Solana.
 
-CRUD básico de un Solana Program desarrollado con Rust y Anchor desde el Solana Playground. 
+---
 
-Puedes comenzar dándole Fork a este repositorio (abajo te explicamos como 👇), **hemos preparado un entorno de codespaces listo para que no tengas que instalar nada**, solo déjate llevar por la fluidez de los ejercicios y temas desarrollados especialmente para ti. 
+## Descripción general
 
-Asegúrate de clonar este repositorio a tu cuenta usando el botón **`Fork`**.
+Cada wallet puede inicializar **una única lista** (PDA) donde almacenar hasta **10 animes**, con nombre, número de episodios y estado de visto/no visto. La lista puede cerrarse para recuperar el rent de la cuenta.
 
-![fork](./images/fork.png)
+---
 
-## Importando el proyecto 
+## Instrucciones del programa
 
-Ya con el repositorio en tu cuenta lo siguiente que debes hacer copiar el `enlace de tu repositorio`, lo que se puede hacer directamente desdel navegador:
+### `crear_lista`
 
-![repo](./images/repo.png)
-Posteriormente, lo uniremos con el siguiente enlace en nuestro navegador de preferencia:
+Inicializa la cuenta PDA `ListaAnime` para el `owner` que firma la transacción.
 
-```url
-https://beta.solpg.io/
-```
+| Parámetro | Tipo     | Descripción                        |
+|-----------|----------|------------------------------------|
+| `nombre`  | `String` | Nombre de la lista (máx. 50 chars) |
 
-Lo que nos dará algo parecido a:
+**Validaciones:**
+- El nombre no puede superar los 50 caracteres → `ErrorListaAnime::NombreMuyLargo`
 
-![url](./images/url.png)
+**Accounts requeridas:** `CrearLista`
 
-Al pulsar enter seremos enviados al `Solana Playground` con nuestro proyecto abierto:
+---
 
-![pg](./images/pg.png)
+### `agregar_anime`
 
-Para guardarlo solo damos clic en el boton `import` y asignamos un nombre:
+Agrega un anime al vector `animes` de la lista.
 
-![import](./images/import.png)
+| Parámetro   | Tipo     | Descripción                         |
+|-------------|----------|-------------------------------------|
+| `nombre`    | `String` | Nombre del anime (máx. 50 chars)    |
+| `episodios` | `u16`    | Número de episodios                 |
 
-## Preparacion del entorno
+**Validaciones:**
+- El nombre no puede superar los 50 caracteres → `ErrorListaAnime::NombreMuyLargo`
+- La lista no puede tener más de 10 animes → `ErrorListaAnime::LimiteAnimesAlcanzado`
 
-Primero conectaremos el entorno con la devnet, lo que tambien procederá a la creación de una wallet. Para eso daremos clic en donde dice **Not Conected**:
+El campo `visto` se inicializa en `false` automáticamente.
 
-![playground1](./images/playground1.png)
+**Accounts requeridas:** `ModificarLista`
 
-Saldrá la siguiente ventana donde daremos en el botón **Continue**:
+---
 
-![wallet](./images/wallet.png)
+### `alternar_visto`
 
-Como resultado se mostrará la siguiente información:
+Alterna el estado `visto` (`true`/`false`) del anime en la posición indicada.
 
-![status](./images/status.png)
+| Parámetro | Tipo  | Descripción                     |
+|-----------|-------|---------------------------------|
+| `index`   | `u64` | Índice del anime en el vector   |
 
-* En verde: el estado de la conexión y el entorno al que se encuentra conectado
+**Validaciones:**
+- El índice debe estar dentro del rango del vector → `ErrorListaAnime::IndiceInvalido`
 
-* En amarillo: la la dirección de la wallet conectada
+**Accounts requeridas:** `ModificarLista`
 
-* En azul: la cantidad de tokens en la wallet
+---
 
-> ℹ️ ¿Quieres ver el ejemplo de un "Hola Mundo" en Solana?. Da clic aquí: 👉 [Ver Ejemplo](https://github.com/WayLearnLatam/Solana-starter-kit/tree/1fc6349ba63375a3fe223d8d56911bc64765459b/build-deploy)
+### `eliminar_anime`
 
-> ℹ️ ¿Cuentas con una Wallet de [Phantom](https://phantom.com/) que deseas importar?, Da clic aquí para ver como hacerlo: 
+Elimina el anime en la posición indicada del vector.
 
-👉 [Como Importar una Wallet](https://github.com/WayLearnLatam/Solana-starter-kit/tree/1fc6349ba63375a3fe223d8d56911bc64765459b/import-key-a-playground)
+| Parámetro | Tipo  | Descripción                     |
+|-----------|-------|---------------------------------|
+| `index`   | `u64` | Índice del anime a eliminar     |
+
+**Validaciones:**
+- El índice debe estar dentro del rango del vector → `ErrorListaAnime::IndiceInvalido`
+
+**Accounts requeridas:** `ModificarLista`
+
+---
+
+### `cerrar_lista`
+
+Cierra la cuenta PDA y devuelve el lamport rent al `owner`.
+
+**Accounts requeridas:** `CerrarLista`
+
+---
+
+## Contextos de cuentas (Account Contexts)
+
+### `CrearLista`
+
+| Cuenta          | Descripción                                                               |
+|-----------------|---------------------------------------------------------------------------|
+| `owner`         | Firmante y pagador del rent. Mutado.                                      |
+| `lista`         | PDA inicializada con `seeds = ["lista", owner.key()]`. Espacio: `INIT_SPACE`. |
+| `system_program`| Programa del sistema de Solana.                                           |
+
+---
+
+### `ModificarLista`
+
+| Cuenta  | Descripción                                                               |
+|---------|---------------------------------------------------------------------------|
+| `owner` | Firmante. Verificado con `has_one = owner`.                               |
+| `lista` | PDA existente derivada de `["lista", owner.key()]`. Mutada.               |
+
+---
+
+### `CerrarLista`
+
+| Cuenta  | Descripción                                                                       |
+|---------|-----------------------------------------------------------------------------------|
+| `owner` | Firmante. Verificado con `has_one = owner`. Recibe el rent al cerrar la cuenta.  |
+| `lista` | PDA existente. Se cierra con `close = owner`.                                    |
+
+---
+
+## Estructuras de datos
+
+### `ListaAnime` (cuenta on-chain)
+
+| Campo    | Tipo           | Descripción                              |
+|----------|----------------|------------------------------------------|
+| `owner`  | `Pubkey`       | Clave pública del dueño de la lista.     |
+| `nombre` | `String`       | Nombre de la lista (máx. 50 chars).      |
+| `animes` | `Vec<Anime>`   | Vector de animes (máx. 10 elementos).    |
+| `bump`   | `u8`           | Bump seed del PDA.                       |
+
+**PDA derivation:** `seeds = [b"lista", owner.key().as_ref()]`
+
+---
+
+### `Anime`
+
+| Campo      | Tipo     | Descripción                           |
+|------------|----------|---------------------------------------|
+| `nombre`   | `String` | Nombre del anime (máx. 50 chars).     |
+| `episodios`| `u16`    | Número de episodios del anime.        |
+| `visto`    | `bool`   | Indica si el anime ya fue visto.      |
+
+---
+
+## Códigos de error
+
+| Error                    | Código | Mensaje                              |
+|--------------------------|--------|--------------------------------------|
+| `NombreMuyLargo`         | 6000   | El nombre es demasiado largo.        |
+| `IndiceInvalido`         | 6001   | Índice inválido.                     |
+| `LimiteAnimesAlcanzado`  | 6002   | Se alcanzó el límite de animes.      |
+
+---
+
+El archivo `client.ts` contiene una suite de pruebas de integración ejecutable
+desde **Solana Playground**. Cubre los siguientes escenarios:
+
+| Test | Descripción |
+|------|-------------|
+| Test 1 | Crear la lista |
+| Test 2 | Agregar animes |
+| Test 3 | Alternar estado `visto` (doble toggle) |
+| Test 4 | Eliminar anime por índice |
+| Test 5 | Error `IndiceInvalido` al usar un índice fuera de rango |
+| Test 6 | Error `NombreMuyLargo` al exceder 50 caracteres |
+| Test 7 | Error `LimiteAnimesAlcanzado` al intentar agregar un undécimo anime |
+| Test 8 | Cerrar lista y verificar devolución del rent |
+
+Para ejecutarlo, abre el proyecto en [Solana Playground](https://beta.solpg.io),
+asegúrate de tener SOL en devnet y corre el cliente desde la pestaña **Client**.
+
+## Notas técnicas
+
+- El espacio de la cuenta se calcula automáticamente con `#[derive(InitSpace)]` y las macros `#[max_len(...)]` de Anchor.
+- Cada wallet puede tener **una sola lista** debido a que el PDA se deriva únicamente de la clave del owner.
+- El campo `bump` se almacena en la cuenta para evitar recalcularlo en cada instrucción.
+- Desarrollado y testeado en **Solana Playground**.
+
+## Créditos
+
+Proyecto desarrollado durante el bootcamp de **[Waylearn](https://www.waylearn.org/)**,
+con el apoyo del agente **WaynIA-Solana**. La blockchain parece sencilla en la
+superficie, pero la ingeniería detrás — PDAs, rent, serialización, validación de
+cuentas — tiene una profundidad real. Este bootcamp no solo enseña a construir,
+sino a entender los principios de cómo funciona todo por debajo.
